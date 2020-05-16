@@ -179,13 +179,13 @@ namespace Akka.NetTests
         [Fact]
         public void PublishSubscribeOnHubsAddsAndRemovesPublishersAndSubscribers()
         {
-            const int PUBLISHER_MAX_COUNT = 16;
-            const int SUBSCRIBER_MAX_COUNT = 16;
-            const int BUFFER_SIZE = 4;
+            const int publisherMaxCount = 16;
+            const int subscriberMaxCount = 16;
+            const int bufferSize = 4;
 
             (Sink<string, NotUsed> mergeSink, Source<string, NotUsed> mergeSource) =
-                MergeHub.Source<string>(perProducerBufferSize: PUBLISHER_MAX_COUNT)
-                        .ToMaterialized(BroadcastHub.Sink<string>(bufferSize: SUBSCRIBER_MAX_COUNT), Keep.Both)
+                MergeHub.Source<string>(perProducerBufferSize: publisherMaxCount)
+                        .ToMaterialized(BroadcastHub.Sink<string>(bufferSize: subscriberMaxCount), Keep.Both)
                         .Run(_materializer);
 
             TestProbe sub0 = CreateTestProbe();
@@ -196,7 +196,7 @@ namespace Akka.NetTests
                     .JoinMaterialized(KillSwitches.SingleBidi<string, string>(), Keep.Right);
 
             var (pub0, uniqueKillSwitch0) =
-                Source.ActorRef<string>(BUFFER_SIZE, OverflowStrategy.Fail)
+                Source.ActorRef<string>(bufferSize, OverflowStrategy.Fail)
                       .ViaMaterialized(busFlow, Keep.Both)
                       .To(Sink.ActorRef<string>(sub0, "complete"))
                       .Run(_materializer);
@@ -206,7 +206,7 @@ namespace Akka.NetTests
             sub0.ExpectNoMsg(TimeSpan.FromMilliseconds(50));
 
             var (pub1, uniqueKillSwitch1) =
-                Source.ActorRef<string>(BUFFER_SIZE, OverflowStrategy.Fail)
+                Source.ActorRef<string>(bufferSize, OverflowStrategy.Fail)
                     .ViaMaterialized(busFlow, Keep.Both)
                     .To(Sink.ActorRef<string>(sub1, "complete"))
                     .Run(_materializer);
