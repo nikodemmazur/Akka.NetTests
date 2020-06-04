@@ -778,8 +778,10 @@ namespace Akka.NetTests
                         content = sr.ReadToEnd();
 
                         Thread.Sleep(TimeSpan.FromMilliseconds(100));
-                    } while (!content.Contains(expectedSubcontent) &&
-                             stopwatch.Elapsed < (timeout ?? TimeSpan.MaxValue));
+
+                        if (stopwatch.Elapsed > (timeout ?? TimeSpan.MaxValue))
+                            throw new TimeoutException();
+                    } while (!content.Contains(expectedSubcontent));
                 }
                 catch (FileNotFoundException)
                 {
@@ -817,48 +819,6 @@ namespace Akka.NetTests
             var answer = await parentActor.Ask<string>("get");
 
             Assert.Equal("updated field", answer);
-        }
-
-        [Fact]
-        public void ActorRecoversItsStateWithEventsWhenRestarted()
-        {
-            
-        }
-
-        [Fact]
-        public void ActorRecoversItsStateAtOnceWithSnapshotWhenRestarted()
-        {
-
-        }
-
-        [Fact]
-        public void SenderOfReplayedMessageIsDeadLetters()
-        {
-
-        }
-
-        [Fact]
-        public void DeferAsyncDoesNotStoreEvents()
-        {
-
-        }
-
-        [Fact]
-        public void PoisonPillBreaksPersisting()
-        {
-
-        }
-
-        [Fact]
-        public void AtLeastOnceDeliveryActorGetsDeliveryConfirmationAfterBeingRestarted()
-        {
-
-        }
-
-        [Fact]
-        public void AtLeastOnceDeliveryActorSetsDeliverySnapshotDuringRecovery()
-        {
-
         }
     }
 }
