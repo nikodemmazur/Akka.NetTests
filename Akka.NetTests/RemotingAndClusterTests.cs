@@ -150,5 +150,11 @@ namespace Akka.NetTests
                 EnterBarrier("seed1-restarted");
             }, EpsilonValueForWithins);
         }
+
+        [Fact] // Change to MultiNodeFact when you start implementing.
+        public void NodesCommunicateViaDistributedPublishSubscribe()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

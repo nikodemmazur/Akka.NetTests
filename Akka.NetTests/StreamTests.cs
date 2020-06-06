@@ -224,5 +224,11 @@ namespace Akka.NetTests
             sub1.ExpectMsg("Oh, looks like I stayed alone."); // Echo.
             sub0.ExpectNoMsg();
         }
+
+        [Fact]
+        public void ActorHandlesPersistenceOfUsedStream()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

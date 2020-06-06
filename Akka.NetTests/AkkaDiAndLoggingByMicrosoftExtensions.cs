@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Configuration;
@@ -11,6 +13,8 @@ using Akka.Logger.Extensions.Logging;
 using Akka.TestKit;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using Autofac.Extras.DynamicProxy;
+using Castle.DynamicProxy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NLog;
@@ -61,6 +65,50 @@ namespace Akka.NetTests
 
         public class ChildActor : ReceiveActor { }
 
+        public class ActorUnawareOfLogging : UntypedActor, ILoggableActor
+        {
+            public ILoggingAdapter LoggingAdapter { get; } = Context.GetLogger();
+
+            protected override void OnReceive(object message)
+            {
+                // Nothing here.
+            }
+        }
+
+        public interface ILoggableActor
+        {
+            ILoggingAdapter LoggingAdapter { get; }
+        }
+
+        public class UntypedActorInterceptor : IInterceptor
+        {
+            private class OnReceiveProxyGenerationHook : IProxyGenerationHook
+            {
+                public void MethodsInspected() { }
+
+                public void NonProxyableMemberNotification(Type type, MemberInfo memberInfo) { }
+
+                public bool ShouldInterceptMethod(Type type, MethodInfo methodInfo) => methodInfo.Name == "OnReceive";
+            }
+
+            public static IProxyGenerationHook OnReceiveHook { get; } = new OnReceiveProxyGenerationHook();
+
+            public void Intercept(IInvocation invocation)
+            {
+                ILoggingAdapter la;
+                if (invocation.InvocationTarget is ILoggableActor ila)
+                {
+                    la = ila.LoggingAdapter;
+                    la.Info($"Received message: " + invocation.Arguments.First());
+                    try { invocation.Proceed(); }
+                    catch (Exception ex) { la.Error(ex, "Exception thrown when processing a message."); }
+                }
+                else
+                    throw new NullReferenceException($"The class {invocation.InvocationTarget.GetType().FullName} does not implement " +
+                        $"the interface {typeof(ILoggableActor).FullName}. Cannot obtain a logger.");
+            }
+        }
+
         private readonly IServiceProvider _serviceProvider;
         public string LogDir { get; }
         public string LogPath { get; }
@@ -84,7 +132,7 @@ namespace Akka.NetTests
             LogDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 nameof(AkkaDiAndLoggingByMicrosoftExtensions));
             Directory.CreateDirectory(LogDir);
-                LogPath = Path.Combine(LogDir, "Akka.NetTests.Log.txt");
+            LogPath = Path.Combine(LogDir, "Akka.NetTests.Log.txt");
 
             ConfigureNlog();
 
@@ -101,6 +149,10 @@ namespace Akka.NetTests
 
             containerBuilder.RegisterType<ParentActor>().AsSelf();
             containerBuilder.RegisterType<ChildActor>().AsSelf();
+            containerBuilder.RegisterType<UntypedActorInterceptor>();
+            containerBuilder.RegisterType<ActorUnawareOfLogging>()
+                            .EnableClassInterceptors(new ProxyGenerationOptions(UntypedActorInterceptor.OnReceiveHook))
+                            .InterceptedBy(typeof(UntypedActorInterceptor));
 
             var container = containerBuilder.Build();
 
@@ -170,6 +222,38 @@ namespace Akka.NetTests
 
             parentActor.Tell(PoisonPill.Instance);
             await actorSystem.Terminate();
+        }
+
+        [Fact]
+        public async Task ActorLogsViaAspectOrientedDiagnostics()
+        {
+            var config = ConfigurationFactory.ParseString(@"akka {
+    loggers = [""Akka.Logger.Extensions.Logging.LoggingLogger, Akka.Logger.Extensions.Logging""]
+    loglevel = info
+    log-config-on-start = off
+    stdout-loglevel = off
+    actor {
+      debug {
+        receive = on      # log any received message
+        autoreceive = on  # log automatically received messages, e.g. PoisonPill
+        lifecycle = on    # log actor lifecycle changes
+        event-stream = on # log subscription changes for Akka.NET event stream
+        unhandled = on    # log unhandled messages sent to actors
+      }
+    }
+}");
+            if (File.Exists(LogPath))
+                File.Delete(LogPath);
+
+            var actorSystem = ActorSystem.Create("ActorSystem", config).UseServiceProvider(_serviceProvider);
+            var actorUnawareOfLogging = actorSystem.ActorOf(actorSystem.DI().Props<ActorUnawareOfLogging>());
+
+            string expectedMsg = "This message should be logged by the interceptor.";
+
+            actorUnawareOfLogging.Tell(expectedMsg);
+
+            var logContent = await ActorTests.WaitForFileContentAsync(expectedMsg, LogPath, TimeSpan.FromSeconds(5));
+            Assert.Contains(expectedMsg, logContent);
         }
     }
 }
