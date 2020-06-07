@@ -41,8 +41,6 @@ namespace Akka.NetTests
                 nameof(AkkaLoggingByDedicatedAddNLogExtension));
             Directory.CreateDirectory(LogDir);
             LogPath = Path.Combine(LogDir, "Akka.NetTests.Log.txt");
-
-            ConfigureNlog();
         }
 
         public class LoggingActor : UntypedActor
@@ -58,7 +56,7 @@ namespace Akka.NetTests
         }
 
         [Fact]
-        public async Task SystemAndActorLogUsingNLogLoggingForAkka()
+        public void SystemAndActorLogUsingNLogLoggingForAkka()
         {
             var config = ConfigurationFactory.ParseString(@"akka {
     loggers = [""Akka.Logger.NLog.NLogLogger, Akka.Logger.NLog""]
@@ -75,20 +73,25 @@ namespace Akka.NetTests
       }
     }
 }");
-            if (File.Exists(LogPath))
-                File.Delete(LogPath);
+            lock (Locker.Instance)
+            {
+                ConfigureNlog();
 
-            var actorSystem = ActorSystem.Create("MyActorSystem", config);
-            var logger = Logging.GetLogger(actorSystem, actorSystem);
-            logger.Info("Actor system created.");
-            var loggingActor = actorSystem.ActorOf<LoggingActor>();
-            logger.Info("Echo logging actor created.");
-            loggingActor.Tell("Log this message, please.");
-            loggingActor.Tell(new NullReferenceException());
+                if (File.Exists(LogPath))
+                    File.Delete(LogPath);
 
-            var logContent = await ActorTests.WaitForFileContentAsync("Log this message, please.", LogPath, TimeSpan.FromSeconds(10));
-            Assert.Contains("Actor system created.", logContent);
-            Assert.Contains("Log this message, please.", logContent);
+                var actorSystem = ActorSystem.Create("MyActorSystem", config);
+                var logger = Logging.GetLogger(actorSystem, actorSystem);
+                logger.Info("Actor system created.");
+                var loggingActor = actorSystem.ActorOf<LoggingActor>();
+                logger.Info("Echo logging actor created.");
+                loggingActor.Tell("Log this message, please.");
+                loggingActor.Tell(new NullReferenceException());
+
+                var logContent = ActorTests.WaitForFileContentAsync("Log this message, please.", LogPath, TimeSpan.FromSeconds(30)).Result;
+                Assert.Contains("Actor system created.", logContent);
+                Assert.Contains("Log this message, please.", logContent);
+            }
         }
     }
 }

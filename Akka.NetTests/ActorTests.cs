@@ -799,6 +799,7 @@ namespace Akka.NetTests
                 protected override void OnReceive(object message)
                 {
                     _privateField = message;
+                    Sender.Tell("ok");
                 }
             }
 
@@ -816,6 +817,7 @@ namespace Akka.NetTests
             var nestedChildActor = Sys.ActorOf<ParentActor.ChildActor>();
 
             nestedChildActor.Tell("updated field");
+            ExpectMsg("ok");
             var answer = await parentActor.Ask<string>("get");
 
             Assert.Equal("updated field", answer);

@@ -156,5 +156,11 @@ namespace Akka.NetTests
         {
             throw new NotImplementedException();
         }
+
+        [Fact] // Change to MultiNodeFact when you start implementing.
+        public void NodesEstablishTheStream()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

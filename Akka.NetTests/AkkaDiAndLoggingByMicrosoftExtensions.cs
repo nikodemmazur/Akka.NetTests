@@ -134,8 +134,6 @@ namespace Akka.NetTests
             Directory.CreateDirectory(LogDir);
             LogPath = Path.Combine(LogDir, "Akka.NetTests.Log.txt");
 
-            ConfigureNlog();
-
             var serviceCollection = new ServiceCollection();
             serviceCollection.AddLogging(builder =>
             {
@@ -170,7 +168,7 @@ namespace Akka.NetTests
         }
 
         [Fact]
-        public async Task SystemAndActorLogUsingMicrosoftExtensions()
+        public void SystemAndActorLogUsingMicrosoftExtensions()
         {
             var config = ConfigurationFactory.ParseString(@"akka {
     loggers = [""Akka.Logger.Extensions.Logging.LoggingLogger, Akka.Logger.Extensions.Logging""]
@@ -187,20 +185,25 @@ namespace Akka.NetTests
       }
     }
 }");
-            if (File.Exists(LogPath))
-                File.Delete(LogPath);
+            lock (Locker.Instance)
+            {
+                ConfigureNlog();
 
-            var actorSystem = ActorSystem.Create("ActorSystem", config);
-            var logger = Logging.GetLogger(actorSystem, actorSystem);
-            logger.Info("Actor system with Microsoft Extensions created.");
-            var loggingActor = actorSystem.ActorOf<LoggingActor>();
-            logger.Info("Echo logging actor created.");
-            loggingActor.Tell("Log this message, please.");
-            loggingActor.Tell(new NullReferenceException());
+                if (File.Exists(LogPath))
+                    File.Delete(LogPath);
 
-            var logContent = await ActorTests.WaitForFileContentAsync("Log this message, please.", LogPath, TimeSpan.FromSeconds(3));
-            Assert.Contains("Actor system", logContent);
-            Assert.Contains("Log this message, please.", logContent);
+                var actorSystem = ActorSystem.Create("ActorSystem", config);
+                var logger = Logging.GetLogger(actorSystem, actorSystem);
+                logger.Info("Actor system with Microsoft Extensions created.");
+                var loggingActor = actorSystem.ActorOf<LoggingActor>();
+                logger.Info("Echo logging actor created.");
+                loggingActor.Tell("Log this message, please.");
+                loggingActor.Tell(new NullReferenceException());
+
+                var logContent = ActorTests.WaitForFileContentAsync("Log this message, please.", LogPath, TimeSpan.FromSeconds(3)).Result;
+                Assert.Contains("Actor system", logContent);
+                Assert.Contains("Log this message, please.", logContent);
+            }
         }
 
         [Fact]
@@ -225,7 +228,7 @@ namespace Akka.NetTests
         }
 
         [Fact]
-        public async Task ActorLogsViaAspectOrientedDiagnostics()
+        public void ActorLogsViaAspectOrientedDiagnostics()
         {
             var config = ConfigurationFactory.ParseString(@"akka {
     loggers = [""Akka.Logger.Extensions.Logging.LoggingLogger, Akka.Logger.Extensions.Logging""]
@@ -242,18 +245,23 @@ namespace Akka.NetTests
       }
     }
 }");
-            if (File.Exists(LogPath))
-                File.Delete(LogPath);
+            lock (Locker.Instance)
+            {
+                ConfigureNlog();
 
-            var actorSystem = ActorSystem.Create("ActorSystem", config).UseServiceProvider(_serviceProvider);
-            var actorUnawareOfLogging = actorSystem.ActorOf(actorSystem.DI().Props<ActorUnawareOfLogging>());
+                if (File.Exists(LogPath))
+                    File.Delete(LogPath);
 
-            string expectedMsg = "This message should be logged by the interceptor.";
+                var actorSystem = ActorSystem.Create("ActorSystem", config).UseServiceProvider(_serviceProvider);
+                var actorUnawareOfLogging = actorSystem.ActorOf(actorSystem.DI().Props<ActorUnawareOfLogging>());
 
-            actorUnawareOfLogging.Tell(expectedMsg);
+                string expectedMsg = "This message should be logged by the interceptor.";
 
-            var logContent = await ActorTests.WaitForFileContentAsync(expectedMsg, LogPath, TimeSpan.FromSeconds(5));
-            Assert.Contains(expectedMsg, logContent);
+                actorUnawareOfLogging.Tell(expectedMsg);
+
+                var logContent = ActorTests.WaitForFileContentAsync(expectedMsg, LogPath, TimeSpan.FromSeconds(20)).Result;
+                Assert.Contains(expectedMsg, logContent);
+            }
         }
     }
 }
