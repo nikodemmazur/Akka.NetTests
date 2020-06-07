@@ -30,7 +30,7 @@ namespace Akka.NetTests
                 Receive<string>(_ =>
                 {
                     Sender.Tell("Ctor behavior."); // Sends the sender implicitly.
-                    Become(SecondBehavior); // Never call Become from ctor. It has no effects then.
+                    Become(SecondBehavior); // Never call Become directly from ctor. It has no effects then.
                 });
             }
 
