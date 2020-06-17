@@ -4,6 +4,7 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU;x64</Platforms>
+    <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <GenerateSerializationAssemblies />
@@ -46,4 +47,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="cd $(TargetDir) &amp; $(SolutionDir)bin\$(PlatformName)\$(ConfigurationName)\Akka.MultiNodeTestRunner.exe  $(TargetFileName) -Dmultinode.output-directory=$(TargetDir)MultiNodeTestRunnerOutput -Dmultinode.clear-output=1" />
+  </Target>
 </Project>

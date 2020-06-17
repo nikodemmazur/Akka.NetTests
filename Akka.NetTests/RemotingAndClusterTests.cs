@@ -15,7 +15,7 @@ using Xunit;
 // MultiNodeTestRunner.exe command:
 // cd C:\Repos\Akka.NetTests\bin\x64\Debug\netcoreapp3.1 &
 // "C:\Repos\Akka.NetTests\bin\x64\Debug\Akka.MultiNodeTestRunner.exe" Akka.NetTests.dll -Dmultinode.output-directory=C:\Repos\Akka.NetTests\bin\x64\Debug\netcoreapp3.1\MultiNodeTestRunnerOutput -Dmultinode.clear-output=1
-
+//$(SolutionDir)bin\x64\Debug\Akka.MultiNodeTestRunner.exe $(TargetPath) -Dmultinode.output-directory=$(TargetDir)MultiNodeTestRunnerOutput -Dmultinode.clear-output=1
 namespace Akka.NetTests
 {
     public class RemotingAndClusterTests : MultiNodeClusterSpec
@@ -151,10 +151,10 @@ namespace Akka.NetTests
             }, EpsilonValueForWithins);
         }
 
-        [Fact] // Change to MultiNodeFact when you start implementing.
-        public void NodesCommunicateViaDistributedPublishSubscribe()
-        {
-            throw new NotImplementedException();
-        }
+        //[Fact] // Change to MultiNodeFact when you start implementing.
+        //public void NodesCommunicateViaDistributedPublishSubscribe()
+        //{
+            //throw new NotImplementedException();
+        //}
     }
 }
