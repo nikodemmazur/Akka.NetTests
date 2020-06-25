@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
@@ -821,6 +822,39 @@ namespace Akka.NetTests
             var answer = await parentActor.Ask<string>("get");
 
             Assert.Equal("updated field", answer);
+        }
+
+        public class DeathWatchActor : ReceiveActor
+        {
+            private IList<IActorRef> _watchees = new List<IActorRef>();
+            public DeathWatchActor()
+            {
+                var actorSelection = Context.System.ActorSelection("/user/*");
+                    actorSelection.Tell(new Identify(new object()));
+                Receive<ActorIdentity>(ai => 
+                    _watchees.Add(ai.Subject));
+                Receive<int>(i =>
+                {
+                    if (_watchees.Count() >= i)
+                        Sender.Tell(_watchees.AsEnumerable());
+                });
+            }
+        }
+
+        [Fact]
+        public void DeathWatchActorFindsAllUserActorsAndWatchesThem()
+        {
+            var sys = ActorSystem.Create("mySys");
+            var a0 = sys.ActorOf(Props.Empty, "actor0");
+            var a1 = sys.ActorOf(Props.Empty, "actor1");
+            var a2 = sys.ActorOf(Props.Empty, "actor2");
+            var dwa = sys.ActorOf<DeathWatchActor>("deathWatchActor");
+            Thread.Sleep(3000);
+            var watchees = dwa.Ask<IEnumerable<IActorRef>>(3, TimeSpan.FromSeconds(3)).Result;
+            Assert.Contains(a0, watchees);
+            Assert.Contains(a1, watchees);
+            Assert.Contains(a2, watchees);
+            Assert.Contains(dwa, watchees);
         }
     }
 }

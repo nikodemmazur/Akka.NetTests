@@ -14,7 +14,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <GenerateSerializationAssemblies />
     <OutputPath>..\bin\x64\Debug\</OutputPath>
-    <DefineConstants>TRACE;RUNMNTR</DefineConstants>
+    <DefineConstants>TRACE;RUNxxxMNTR</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Akka" Version="1.4.8" />
