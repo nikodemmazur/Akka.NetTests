@@ -19,6 +19,7 @@ using Akka.Persistence;
 using Akka.Routing;
 using Akka.Streams.Implementation.Fusing;
 using Akka.TestKit;
+using FluentAssertions;
 using Microsoft.VisualBasic;
 using Xunit;
 
@@ -831,8 +832,8 @@ namespace Akka.NetTests
             private class CheckIfAllDead { }
             private class BroadcastIdentification { }
 
-            private IList<IActorRef> _markedWithDeath = new List<IActorRef>();
-            private IList<IActorRef> _collected = new List<IActorRef>();
+            private IImmutableSet<IActorRef> _markedWithDeath = ImmutableHashSet<IActorRef>.Empty;
+            private IImmutableSet<IActorRef> _collected = ImmutableHashSet<IActorRef>.Empty;
 
             public GrimReaperActor(string actorPath, TimeSpan markWithDeathInterval, TimeSpan collectSoulsInterval)
             {
@@ -856,21 +857,20 @@ namespace Akka.NetTests
 
                 Receive<ActorIdentity>(ai =>
                 {
-                    _collected.Remove(ai.Subject);
-                    _markedWithDeath.Add(ai.Subject);
+                    _markedWithDeath = _markedWithDeath.Add(ai.Subject);
                     Context.Watch(ai.Subject);
                 });
 
                 Receive<Terminated>(t =>
                 {
-                    _markedWithDeath.Remove(t.ActorRef);
-                    _collected.Add(t.ActorRef);
+                    _collected = _collected.Add(t.ActorRef);
                     Context.Unwatch(t.ActorRef);
                 });
 
                 Receive<CheckIfAllDead>(_ =>
                 {
-                    if (_markedWithDeath.SequenceEqual(new[] { Self }))
+                var setDiff = _markedWithDeath.Except(_collected);
+                    if (setDiff.Count() == 1 && setDiff.Contains(Self))
                     {
                         Context.Stop(Self);
                         Context.System.Terminate();
@@ -879,6 +879,7 @@ namespace Akka.NetTests
 
                 Receive<BroadcastIdentification>(_ => actorSelection.Tell(new Identify(new object())));
 
+                // Concurrency in actor is considered as bad practice. Spawn a worker actor instead.
                 Receive<RequestMarkedWithDeathList>(msg =>
                     Task.Run(() => SpinWait.SpinUntil(() => _markedWithDeath.Count() >= msg.MinCount, msg.Timeout))
                         .PipeTo(Sender, success: success => success ? (object)_markedWithDeath.AsEnumerable() : new TimeoutException()));
@@ -928,22 +929,24 @@ namespace Akka.NetTests
                 var w1 = sys.ActorOf(Props.Empty, "worker1");
                 var w2 = sys.ActorOf(Props.Empty, "worker2");
 
-                var marked = ExpectMsg<IEnumerable<IActorRef>>(TimeSpan.FromSeconds(3));
-                Assert.Contains(w0, marked);
-                Assert.Contains(w1, marked);
-                Assert.Contains(w2, marked);
-                Assert.Contains(dwa, marked);
+                var marked = ExpectMsg<IEnumerable<IActorRef>>();
+                marked.Should().HaveCount(4);
+                marked.Should().Contain(w0);
+                marked.Should().Contain(w1);
+                marked.Should().Contain(w2);
+                marked.Should().Contain(dwa);
 
                 w0.Tell(PoisonPill.Instance);
                 w1.Tell(PoisonPill.Instance);
 
-                var collected = ExpectMsg<IEnumerable<IActorRef>>(TimeSpan.FromSeconds(3));
-                Assert.Contains(w0, collected);
-                Assert.Contains(w1, collected);
+                var collected = ExpectMsg<IEnumerable<IActorRef>>();
+                collected.Should().HaveCount(2);
+                collected.Should().Contain(w0);
+                collected.Should().Contain(w1);
 
                 w2.Tell(PoisonPill.Instance);
 
-                sys.WhenTerminated.Wait(TimeSpan.FromSeconds(3));
+                sys.WhenTerminated.Wait(TimeSpan.FromSeconds(3)).Should().BeTrue();
             }, TimeSpan.FromSeconds(1));
         }
     }
