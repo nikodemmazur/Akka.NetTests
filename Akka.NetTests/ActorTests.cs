@@ -949,5 +949,30 @@ namespace Akka.NetTests
                 sys.WhenTerminated.Wait(TimeSpan.FromSeconds(3)).Should().BeTrue();
             }, TimeSpan.FromSeconds(1));
         }
+
+        public class DisposableActor : UntypedActor, IDisposable
+        {
+            private IActorRef _probe;
+
+            public DisposableActor(IActorRef probe)
+            {
+                _probe = probe;
+            }
+
+            public void Dispose()
+            {
+                _probe.Tell("Dispose called.");
+            }
+
+            protected override void OnReceive(object message) { }
+        }
+
+        [Fact]
+        public void DisposableActorIsDisposedWhenActorSystemStopsHim()
+        {
+            var da = Sys.ActorOf(Props.Create<DisposableActor>(() => new DisposableActor(TestActor)));
+            da.Tell(PoisonPill.Instance);
+            ExpectMsg("Dispose called.");
+        }
     }
 }
