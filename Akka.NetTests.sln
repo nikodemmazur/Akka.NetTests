@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Akka.NetTests", "src\Akka.NetTests\Akka.NetTests.csproj", "{85C7C0D2-FA0B-4437-A5EA-B859EC12ACA2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Akka.NetTests", "tests\Akka.NetTests\Akka.NetTests.csproj", "{85C7C0D2-FA0B-4437-A5EA-B859EC12ACA2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Akka.MultiNodeTestRunner", "src\Akka.MultiNodeTestRunner\Akka.MultiNodeTestRunner.csproj", "{F03AE8A7-4972-45B8-B3BD-02F8AF151947}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Akka.MultiNodeTestRunner", "tests\Akka.MultiNodeTestRunner\Akka.MultiNodeTestRunner.csproj", "{F03AE8A7-4972-45B8-B3BD-02F8AF151947}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
